@@ -140,35 +140,355 @@ cd ~/dotfiles
 exec zsh
 ```
 
-## Useful keys and commands
+## Aliases, functions and optimized workflow
 
-### Shell
+The aliases below are defined in `~/.config/zsh/aliases.zsh`. Helper functions are defined in `~/.config/zsh/functions.zsh`.
 
-- `Ctrl-R`: Atuin history search
-- `Ctrl-T`: fzf file picker
-- `Option-C`: fzf directory picker
-- `Tab`: fzf-tab completion
-- `Option-F`: accept the next autosuggested word
-- `z <name>`: jump to a frequently used directory
-- `zi`: interactively choose a zoxide directory
+You do not need to memorize everything. The most useful daily commands are:
 
-### Ghostty
+```text
+ll  lt  b  z  zi  cproj  gs  gd  lg  dcud  dcl  dcd  port  t  reload
+```
 
-- `Cmd + backtick`: global Quick Terminal
-- Ghostty may request macOS Accessibility permission for the global shortcut.
+### Navigation and file listing
 
-### tmux
+| Command | Expands to / behavior | Recommended use |
+|---|---|---|
+| `..` | `cd ..` | Move up one directory |
+| `...` | `cd ../..` | Move up two directories |
+| `....` | `cd ../../..` | Move up three directories |
+| `ls` | `eza --icons=auto --group-directories-first` | Quick directory listing |
+| `ll` | `eza -lah --icons=auto --git --group-directories-first` | Detailed listing with hidden files and Git state |
+| `la` | `eza -a --icons=auto --group-directories-first` | Compact listing including hidden files |
+| `lt` | `eza --tree --level=2 --icons=auto` | Inspect a project tree two levels deep |
+| `lta` | `eza --tree --level=3 --icons=auto --all` | Inspect a deeper tree including hidden files |
 
-- `t` or `tdev`: create/attach a session
-- Prefix: `Ctrl-A`
-- `Ctrl-A c`: new window
-- `Ctrl-A |`: horizontal split
-- `Ctrl-A -`: vertical split
-- `Ctrl-A h/j/k/l`: navigate panes
-- `Ctrl-A H/J/K/L`: resize panes
-- `Ctrl-A d`: detach
-- `Ctrl-A r`: reload config
-- `Ctrl-A Shift-I`: install TPM plugins manually
+Examples:
+
+```bash
+ll
+lt
+z ipacer
+zi
+```
+
+Prefer `z` or `zi` over typing long paths repeatedly. `zoxide` learns frequently visited directories and improves over time.
+
+### Reading files
+
+Native `cat` is intentionally preserved for scripts and predictable pipelines.
+
+| Command | Behavior | Recommended use |
+|---|---|---|
+| `b <file>` | Open with `bat` | Read source files with syntax highlighting and line numbers |
+| `bp <file>` | Plain `bat`, no pager | Print a short file or pipe its output |
+
+Examples:
+
+```bash
+b internal/auth/service.go
+b ~/.zshrc
+bp package.json | jq
+```
+
+A simple rule:
+
+```text
+cat  -> scripts and compatibility-sensitive pipelines
+b    -> reading files interactively
+bp   -> clean output without paging
+```
+
+### Shell utilities
+
+| Command | Behavior | Recommended use |
+|---|---|---|
+| `c` | Clear the terminal | Reset the visible terminal area |
+| `reload` | `exec zsh` | Reload the complete shell after editing config |
+| `path` | Print each PATH entry on its own line | Debug which runtime or CLI is being selected |
+| `ports` | Show all listening TCP ports | Find running local services |
+
+Examples:
+
+```bash
+reload
+which go
+which node
+which cargo
+path
+ports
+```
+
+Use `reload` instead of repeatedly running `source ~/.zshrc`; it starts a clean Zsh process and avoids loading some hooks more than once.
+
+### Git aliases
+
+| Command | Expands to | Recommended use |
+|---|---|---|
+| `g` | `git` | Prefix for Git commands without a dedicated alias |
+| `gs` | `git status` | Quick repository status |
+| `gd` | `git diff` | Review unstaged changes through Delta |
+| `gl` | `git log --graph --decorate --oneline --all` | Inspect branches and commit topology |
+| `lg` | `lazygit` | Interactive staging, commits, branches and rebases |
+
+Recommended workflow:
+
+```bash
+gs
+gd
+lg
+```
+
+Use `gs` and `gd` for quick inspection. Open `lg` when staging individual hunks, resolving conflicts, rebasing or managing branches.
+
+Oh My Zsh's `git` plugin also provides additional aliases. Inspect the aliases actually available on the current machine with:
+
+```bash
+alias | grep -E "='git|='lazygit" | sort
+alias gco
+alias gst
+```
+
+### Docker aliases
+
+| Command | Expands to | Recommended use |
+|---|---|---|
+| `d` | `docker` | General Docker commands |
+| `dc` | `docker compose` | Compose commands without a dedicated alias |
+| `dps` | Formatted `docker ps` | Compact container status table |
+| `dcu` | `docker compose up` | Run the stack in the foreground |
+| `dcud` | `docker compose up -d` | Start the stack in the background |
+| `dcl` | `docker compose logs -f` | Follow all Compose logs |
+| `dcd` | `docker compose down` | Stop and remove the Compose stack |
+
+Recommended local-development workflow:
+
+```bash
+dcud
+dps
+dcl
+```
+
+Restart or inspect one service:
+
+```bash
+dc restart api
+dc logs -f api
+dc exec api sh
+```
+
+Stop the stack:
+
+```bash
+dcd
+```
+
+`dcd` does not remove volumes. Use `dc down -v` only when you intentionally want to delete persistent development data.
+
+### tmux aliases and function
+
+| Command | Behavior | Recommended use |
+|---|---|---|
+| `t` | Create or attach session `dev` | Default long-running session |
+| `t <name>` | Create or attach a named session | One session per project or server |
+| `tdev` | Create or attach session `dev` | Explicit equivalent of plain `t` |
+| `tls` | List tmux sessions | See currently available sessions |
+| `ta` | Attach to tmux | Useful when only one session exists |
+
+Examples:
+
+```bash
+t ipacer
+t infrastructure
+t production
+tls
+```
+
+Recommended split of responsibilities:
+
+```text
+Ghostty tabs/splits -> short local tasks
+named tmux sessions -> long-running projects, SSH and persistent processes
+```
+
+#### tmux keys
+
+The tmux prefix is `Ctrl-A`.
+
+| Key | Action |
+|---|---|
+| `Ctrl-A c` | Create a new window in the current directory |
+| `Ctrl-A \|` | Split the current pane left/right |
+| `Ctrl-A -` | Split the current pane top/bottom |
+| `Ctrl-A h/j/k/l` | Move between panes |
+| `Ctrl-A H/J/K/L` | Resize panes by five cells |
+| `Ctrl-A d` | Detach from the current session |
+| `Ctrl-A r` | Reload `~/.tmux.conf` |
+| `Ctrl-A [` | Enter copy/scroll mode |
+| `v` in copy mode | Begin selection |
+| `y` in copy mode | Copy selection to the macOS clipboard |
+| `Ctrl-A Shift-I` | Install TPM plugins manually |
+
+### Helper functions
+
+#### `mkcd`
+
+Create a directory and enter it:
+
+```bash
+mkcd new-service
+mkcd ~/Projects/ipacer/tools/migration
+mkcd "Project With Spaces"
+```
+
+#### `port`
+
+Show the process listening on one TCP port:
+
+```bash
+port 8080
+port 5432
+port 3000
+```
+
+Use `ports` for all listening ports and `port <number>` for one specific port.
+
+#### `cproj`
+
+Fuzzy-select a Git repository below `${PROJECTS_DIR:-$HOME/Projects}` and enter it:
+
+```bash
+cproj
+```
+
+To use another project root, add this to `~/.config/zsh/local.zsh`:
+
+```bash
+export PROJECTS_DIR="$HOME/Code"
+```
+
+Then reload the shell:
+
+```bash
+reload
+cproj
+```
+
+#### `extract`
+
+Extract common archive formats without remembering individual `tar` flags:
+
+```bash
+extract archive.zip
+extract source.tar.gz
+extract backup.tar.xz
+```
+
+Supported formats include `.zip`, `.tar`, `.tar.gz`, `.tgz`, `.tar.bz2`, `.tbz2`, `.tar.xz`, `.gz` and `.bz2`.
+
+### fzf, Atuin and autosuggestion keys
+
+| Key | Action |
+|---|---|
+| `Ctrl-R` | Search command history with Atuin |
+| `Ctrl-T` | Fuzzy-select a file and insert its path into the command line |
+| `Option-C` | Fuzzy-select a directory and enter it |
+| `Tab` | Fuzzy Zsh completion through fzf-tab |
+| `Option-F` | Accept the next word from the autosuggestion |
+
+Examples:
+
+```text
+b <Ctrl-T>                 -> select a file to open with bat
+vim <Ctrl-T>               -> select a file to edit
+cd ~/Pro<Tab>              -> fuzzy-complete the directory
+ssh <Tab>                  -> fuzzy-complete a known SSH host
+docker compose logs <Tab>  -> complete a service name
+```
+
+Ghostty is configured to treat Option as Alt, which is required for `Option-C` and `Option-F`.
+
+### Suggested daily workflows
+
+#### Open a project
+
+```bash
+cproj
+# or after zoxide has learned the directory:
+z ipacer
+
+ll
+lt
+t ipacer
+```
+
+#### Start backend development
+
+```bash
+gs
+dcud
+dps
+port 8080
+go run ./cmd/api
+```
+
+Open another tmux window with `Ctrl-A c`, then follow the stack logs:
+
+```bash
+dcl
+```
+
+#### Review and commit code
+
+```bash
+gs
+gd
+lg
+```
+
+#### Debug a local service
+
+```bash
+ports
+port 8080
+dps
+dc logs -f api
+xh GET localhost:8080/health
+```
+
+Search the codebase and inspect a result:
+
+```bash
+rg "CreateUser"
+fd "handler"
+b internal/user/handler.go
+```
+
+### Inspect aliases and functions
+
+Show all aliases:
+
+```bash
+alias | sort
+```
+
+Check whether a command is an alias, function or executable:
+
+```bash
+type gs
+type cproj
+type git
+type node
+```
+
+Print a function definition:
+
+```bash
+functions cproj
+functions port
+```
+
+The goal is not to replace every Unix command with a private language. Keep aliases for commands used many times per day; use full command names for rare or safety-sensitive operations.
 
 ## Atuin
 
