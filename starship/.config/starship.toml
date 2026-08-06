@@ -1,0 +1,46 @@
+add_newline = false
+command_timeout = 1000
+
+format = "$directory$git_branch$git_status$golang$rust$nodejs$python$docker_context$cmd_duration$line_break$character"
+
+[directory]
+truncation_length = 4
+truncate_to_repo = true
+read_only = " "
+
+[git_branch]
+symbol = " "
+format = "on [$symbol$branch]($style) "
+
+[git_status]
+format = "[$all_status$ahead_behind]($style) "
+
+[golang]
+symbol = " "
+format = "via [$symbol($version)]($style) "
+
+[rust]
+symbol = " "
+format = "via [$symbol($version)]($style) "
+
+[nodejs]
+symbol = " "
+format = "via [$symbol($version)]($style) "
+
+[python]
+symbol = " "
+format = "via [$symbol($version)]($style) "
+
+[docker_context]
+symbol = " "
+only_with_files = true
+format = "via [$symbol$context]($style) "
+
+[cmd_duration]
+min_time = 1000
+format = "took [$duration]($style) "
+
+[character]
+success_symbol = "[❯](bold green)"
+error_symbol = "[❯](bold red)"
+vimcmd_symbol = "[❮](bold green)"

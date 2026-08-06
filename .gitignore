@@ -1,0 +1,9 @@
+.DS_Store
+*.swp
+*.swo
+.idea/
+.vscode/
+
+# Machine-local files are intentionally not tracked
+**/local.zsh
+**/*.local

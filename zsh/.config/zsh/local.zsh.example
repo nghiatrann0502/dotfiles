@@ -1,0 +1,10 @@
+# Copy this file to ~/.config/zsh/local.zsh for machine-specific settings.
+# local.zsh is intentionally not tracked by Git.
+
+# export PROJECTS_DIR="$HOME/Projects"
+
+# Flutter / Android example:
+# export ANDROID_HOME="$HOME/Library/Android/sdk"
+# export PATH="$ANDROID_HOME/platform-tools:$PATH"
+
+# Work-only aliases or environment variables belong here.
