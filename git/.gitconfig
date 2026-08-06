@@ -14,3 +14,6 @@
 
 [include]
     path = ~/.gitconfig.local
+[user]
+	name = NghiaTran
+	email = nghiatrann0502@gmail.com
