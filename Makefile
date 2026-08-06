@@ -1,4 +1,4 @@
-.PHONY: install update doctor unstow
+.PHONY: install update doctor repair unstow
 
 install:
 	./install.sh
@@ -8,6 +8,9 @@ update:
 
 doctor:
 	./doctor.sh
+
+repair:
+	./repair-stow.sh
 
 unstow:
 	./uninstall.sh

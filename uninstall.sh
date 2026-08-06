@@ -9,7 +9,7 @@ if ! command -v stow >/dev/null 2>&1; then
   exit 1
 fi
 
-stow --dir="$DOTFILES_DIR" --target="$HOME" --delete \
-  zsh ghostty starship atuin tmux git
+stow --dir="$DOTFILES_DIR" --target="$HOME" --no-folding --delete \
+  zsh ghostty starship atuin tmux git bin
 
-echo "Dotfile symlinks removed. Packages and application data were left untouched."
+echo "Dotfile symlinks removed. Packages, app data, and local.zsh were left untouched."

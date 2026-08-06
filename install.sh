@@ -3,7 +3,8 @@
 set -euo pipefail
 
 DOTFILES_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-BACKUP_DIR="$HOME/.dotfiles-backup/$(date +%Y%m%d-%H%M%S)"
+BACKUP_ROOT="$HOME/.dotfiles-backup"
+BACKUP_DIR="$BACKUP_ROOT/$(date +%Y%m%d-%H%M%S)"
 NVM_VERSION="v0.40.4"
 
 log() {
@@ -12,6 +13,112 @@ log() {
 
 warn() {
   printf '\033[1;33mWarning: %s\033[0m\n' "$1"
+}
+
+path_is_inside_repo() {
+  local path="$1"
+  [[ "$path" == "$DOTFILES_DIR" || "$path" == "$DOTFILES_DIR/"* ]]
+}
+
+# Return success when a target is already provided by this dotfiles repo.
+# This handles both direct file symlinks and Stow's older "folded directory"
+# layout, where e.g. ~/.config/zsh itself points into the repo.
+target_is_managed_by_repo() {
+  local target="$1"
+  local parent physical_parent raw candidate candidate_parent resolved
+
+  parent="$(dirname "$target")"
+  if [[ -d "$parent" ]]; then
+    physical_parent="$(cd -P "$parent" 2>/dev/null && pwd || true)"
+    if [[ -n "$physical_parent" ]] && path_is_inside_repo "$physical_parent"; then
+      return 0
+    fi
+  fi
+
+  if [[ -L "$target" ]]; then
+    raw="$(readlink "$target")"
+    if [[ "$raw" == /* ]]; then
+      candidate="$raw"
+    else
+      candidate="$parent/$raw"
+    fi
+
+    candidate_parent="$(cd -P "$(dirname "$candidate")" 2>/dev/null && pwd || true)"
+    if [[ -n "$candidate_parent" ]]; then
+      resolved="$candidate_parent/$(basename "$candidate")"
+      path_is_inside_repo "$resolved" && return 0
+    fi
+  fi
+
+  return 1
+}
+
+# Restore tracked files that an older buggy installer may have moved out of
+# the repo through a folded Stow directory symlink.
+restore_missing_managed_sources() {
+  local mappings source_rel target_rel source candidate
+  local -a candidates
+
+  mappings=(
+    "zsh/.zprofile|.zprofile"
+    "zsh/.zshrc|.zshrc"
+    "zsh/.config/zsh/env.zsh|.config/zsh/env.zsh"
+    "zsh/.config/zsh/completion.zsh|.config/zsh/completion.zsh"
+    "zsh/.config/zsh/tools.zsh|.config/zsh/tools.zsh"
+    "zsh/.config/zsh/aliases.zsh|.config/zsh/aliases.zsh"
+    "zsh/.config/zsh/functions.zsh|.config/zsh/functions.zsh"
+    "zsh/.config/zsh/local.zsh.example|.config/zsh/local.zsh.example"
+    "ghostty/.config/ghostty/config.ghostty|.config/ghostty/config.ghostty"
+    "starship/.config/starship.toml|.config/starship.toml"
+    "atuin/.config/atuin/config.toml|.config/atuin/config.toml"
+    "tmux/.tmux.conf|.tmux.conf"
+    "git/.gitconfig|.gitconfig"
+    "git/.gitignore_global|.gitignore_global"
+    "bin/.local/bin/colima-setup|.local/bin/colima-setup"
+  )
+
+  shopt -s nullglob
+
+  for mapping in "${mappings[@]}"; do
+    source_rel="${mapping%%|*}"
+    target_rel="${mapping#*|}"
+    source="$DOTFILES_DIR/$source_rel"
+
+    [[ -e "$source" || -L "$source" ]] && continue
+
+    if [[ -d "$DOTFILES_DIR/.git" ]] && \
+       git -C "$DOTFILES_DIR" cat-file -e "HEAD:$source_rel" 2>/dev/null; then
+      warn "Restoring missing managed source from Git: $source_rel"
+      git -C "$DOTFILES_DIR" restore --source=HEAD -- "$source_rel"
+      continue
+    fi
+
+    candidates=("$BACKUP_ROOT"/*/"$target_rel")
+    if (( ${#candidates[@]} > 0 )); then
+      candidate="${candidates[${#candidates[@]}-1]}"
+      warn "Restoring missing managed source from backup: $source_rel"
+      mkdir -p "$(dirname "$source")"
+      cp -p "$candidate" "$source"
+    fi
+  done
+
+  shopt -u nullglob
+}
+
+# Replace old folded directory symlinks with real directories. Stow will then
+# create one symlink per managed file, leaving room for machine-local files.
+unfold_managed_directory() {
+  local directory="$1"
+  local resolved
+
+  [[ -L "$directory" ]] || return 0
+
+  resolved="$(cd -P "$directory" 2>/dev/null && pwd || true)"
+  if [[ -n "$resolved" ]] && path_is_inside_repo "$resolved"; then
+    rm "$directory"
+    mkdir -p "$directory"
+    echo "Unfolded managed directory: $directory"
+  fi
 }
 
 if [[ "$(uname -s)" != "Darwin" ]]; then
@@ -33,6 +140,39 @@ fi
 log "Installing packages from Brewfile"
 brew bundle --file="$DOTFILES_DIR/Brewfile"
 
+log "Repairing legacy Stow layout if needed"
+restore_missing_managed_sources
+
+# Preserve local.zsh before replacing an old folded ~/.config/zsh symlink.
+# Older versions accidentally created local.zsh inside the repo because the
+# whole ~/.config/zsh directory was a symlink. Move that file back out.
+LOCAL_ZSH="$HOME/.config/zsh/local.zsh"
+SOURCE_LOCAL_ZSH="$DOTFILES_DIR/zsh/.config/zsh/local.zsh"
+LOCAL_ZSH_STASH=""
+
+if [[ -f "$LOCAL_ZSH" ]]; then
+  LOCAL_ZSH_STASH="$(mktemp -t dotfiles-local-zsh.XXXXXX)"
+  cp -p "$LOCAL_ZSH" "$LOCAL_ZSH_STASH"
+elif [[ -f "$SOURCE_LOCAL_ZSH" ]]; then
+  LOCAL_ZSH_STASH="$(mktemp -t dotfiles-local-zsh.XXXXXX)"
+  cp -p "$SOURCE_LOCAL_ZSH" "$LOCAL_ZSH_STASH"
+fi
+
+# local.zsh must never be inside a Stow package, even when gitignored.
+rm -f "$SOURCE_LOCAL_ZSH"
+
+mkdir -p "$HOME/.config" "$HOME/.local"
+unfold_managed_directory "$HOME/.config/zsh"
+unfold_managed_directory "$HOME/.config/ghostty"
+unfold_managed_directory "$HOME/.config/atuin"
+unfold_managed_directory "$HOME/.local/bin"
+
+if [[ -n "$LOCAL_ZSH_STASH" ]]; then
+  mkdir -p "$HOME/.config/zsh"
+  cp -p "$LOCAL_ZSH_STASH" "$LOCAL_ZSH"
+  rm -f "$LOCAL_ZSH_STASH"
+fi
+
 log "Backing up conflicting dotfiles"
 managed_targets=(
   "$HOME/.zprofile"
@@ -49,18 +189,16 @@ managed_targets=(
   "$HOME/.tmux.conf"
   "$HOME/.gitconfig"
   "$HOME/.gitignore_global"
+  "$HOME/.local/bin/colima-setup"
 )
 
 backed_up=false
 for target in "${managed_targets[@]}"; do
   [[ -e "$target" || -L "$target" ]] || continue
 
-  # Keep links that already point into this dotfiles repository.
-  if [[ -L "$target" ]]; then
-    link_target="$(readlink "$target")"
-    if [[ "$link_target" == *"$DOTFILES_DIR"* || "$link_target" == *"dotfiles/"* ]]; then
-      continue
-    fi
+  # Never move a file that is already supplied by this repository.
+  if target_is_managed_by_repo "$target"; then
+    continue
   fi
 
   relative="${target#$HOME/}"
@@ -74,12 +212,16 @@ if [[ "$backed_up" == true ]]; then
 fi
 
 log "Creating dotfile symlinks with GNU Stow"
-mkdir -p "$HOME/.config"
-stow --dir="$DOTFILES_DIR" --target="$HOME" --restow \
-  zsh ghostty starship atuin tmux git
+mkdir -p \
+  "$HOME/.config/zsh" \
+  "$HOME/.config/ghostty" \
+  "$HOME/.config/atuin" \
+  "$HOME/.local/bin"
+
+stow --dir="$DOTFILES_DIR" --target="$HOME" --no-folding --restow \
+  zsh ghostty starship atuin tmux git bin
 
 log "Creating machine-local Zsh config"
-LOCAL_ZSH="$HOME/.config/zsh/local.zsh"
 LOCAL_ZSH_EXAMPLE="$HOME/.config/zsh/local.zsh.example"
 
 if [[ ! -e "$LOCAL_ZSH" ]]; then
@@ -119,6 +261,9 @@ if ! nvm version default >/dev/null 2>&1; then
   nvm alias default 'lts/*'
 fi
 
+log "Setting up Colima and Docker CLI"
+"$HOME/.local/bin/colima-setup"
+
 log "Installing Rust stable through rustup"
 export PATH="$HOME/.cargo/bin:$PATH"
 
@@ -127,7 +272,6 @@ if ! command -v rustup >/dev/null 2>&1; then
     sh -s -- -y --profile default --default-toolchain stable --no-modify-path
 fi
 
-# Keep the default stable toolchain current and install the standard dev components.
 rustup set profile default
 rustup toolchain install stable
 rustup default stable
@@ -177,6 +321,7 @@ Setup complete.
 
 Next steps:
   1. Restart Ghostty or run: exec zsh
-  2. Edit ~/.config/zsh/local.zsh for machine-specific paths or aliases.
-  3. For Ghostty Quick Terminal, allow Accessibility permission when macOS asks.
+  2. Use colstop when Docker is not needed; use colup to start it again.
+  3. Edit ~/.config/zsh/local.zsh for machine-specific paths or aliases.
+  4. For Ghostty Quick Terminal, allow Accessibility permission when macOS asks.
 MESSAGE

@@ -36,6 +36,13 @@ brew "tealdeer"
 brew "hyperfine"
 brew "just"
 
+# Containers (Docker CLI without Docker Desktop)
+brew "colima"
+brew "docker"
+brew "docker-compose"
+brew "docker-buildx"
+brew "docker-credential-helper"
+
 # Development
 brew "go"
 brew "uv"

@@ -16,6 +16,7 @@ A practical macOS terminal setup managed with Git + GNU Stow.
 - jq, yq, xh
 - btop, dust, duf, procs
 - tealdeer, hyperfine, just
+- Colima + Docker CLI, Compose, Buildx and macOS Keychain credentials (no Docker Desktop)
 - Go through Homebrew
 - Rust stable through rustup, including Cargo, rustfmt, Clippy and rust-analyzer
 - Node.js through nvm
@@ -43,10 +44,12 @@ dotfiles/
 ├── tmux/.tmux.conf
 ├── git/.gitconfig
 ├── git/.gitignore_global
+├── bin/.local/bin/colima-setup
 ├── Brewfile
 ├── install.sh
 ├── update.sh
 ├── doctor.sh
+├── repair-stow.sh
 └── uninstall.sh
 ```
 
@@ -61,14 +64,41 @@ The installer:
 
 1. Installs Homebrew when missing.
 2. Installs packages from `Brewfile`.
-3. Backs up conflicting files under `~/.dotfiles-backup/`.
-4. Creates symlinks with GNU Stow.
-5. Installs Oh My Zsh and fzf-tab.
-6. Installs nvm and the current Node.js LTS.
-7. Installs the stable Rust toolchain through rustup.
-8. Installs TPM and tmux plugins.
-9. Imports existing Zsh history into Atuin when safe.
-10. Validates `.zshrc` syntax.
+3. Repairs the legacy folded-directory Stow layout when detected.
+4. Backs up genuinely conflicting files under `~/.dotfiles-backup/`.
+5. Creates one symlink per managed file with GNU Stow `--no-folding`.
+6. Installs Oh My Zsh and fzf-tab.
+7. Installs nvm and the current Node.js LTS.
+8. Installs Colima, Docker CLI, Compose, Buildx and the macOS credential helper.
+9. Creates and starts a hardware-aware Colima development profile.
+10. Installs the stable Rust toolchain through rustup.
+11. Installs TPM and tmux plugins.
+12. Imports existing Zsh history into Atuin when safe.
+13. Validates `.zshrc` syntax.
+
+
+## Repair an older Stow layout
+
+An older installer version allowed Stow to replace directories such as `~/.config/zsh` with one directory symlink. On a later install, backup logic could then move the files behind that symlink out of the repository. The current setup uses `--no-folding`, so `~/.config/zsh` stays a real directory, managed files are individual symlinks, and `local.zsh` remains a real machine-local file.
+
+Repair an affected checkout without reinstalling Homebrew, Colima, Rust, or Node:
+
+```bash
+cd ~/dotfiles
+./repair-stow.sh
+exec zsh
+```
+
+The repair script restores missing tracked files from Git when possible, otherwise from the newest `~/.dotfiles-backup/` copy. It preserves `~/.config/zsh/local.zsh`, unfolds old directory symlinks, and recreates individual file symlinks.
+
+The expected result is:
+
+```bash
+test -d ~/.config/zsh && test ! -L ~/.config/zsh
+test -L ~/.config/zsh/env.zsh
+test -L ~/.config/zsh/aliases.zsh
+test -f ~/.config/zsh/local.zsh && test ! -L ~/.config/zsh/local.zsh
+```
 
 ## Install on a new Mac
 
@@ -114,6 +144,66 @@ cat > ~/.gitconfig.local <<'GIT'
 GIT
 ```
 
+## Colima and Docker
+
+This setup uses Colima as the Linux VM/runtime and installs the Docker CLI separately. Docker Desktop is not required. The installer also configures the Compose and Buildx plugins under `~/.docker/cli-plugins` and uses the macOS Keychain credential helper for `docker login`. When migrating from Docker Desktop, run `docker login` again if the old Desktop-specific credential store is no longer available.
+
+On the first install, `colima-setup` calculates sensible resources from the Mac hardware:
+
+- CPU: 1–6 cores depending on the available logical CPUs.
+- Memory: 4 GiB on smaller Macs, 8 GiB on 16 GiB Macs, and 12 GiB on Macs with at least 32 GiB RAM.
+- Disk: 100 GiB by default for the Colima VM.
+- Apple Silicon with macOS 13 or newer: Apple VZ virtualization with VirtioFS mounts.
+- Intel or older compatible Macs: Colima's portable default virtualization path.
+
+The Colima VM does **not** automatically start at macOS login. Start it only when containers are needed and stop it afterward to release VM memory:
+
+```bash
+colup
+colstatus
+colstop
+```
+
+Override the generated defaults in `~/.config/zsh/local.zsh` before deleting/recreating a profile:
+
+```bash
+export COLIMA_CPUS=6
+export COLIMA_MEMORY=12
+export COLIMA_DISK=100
+
+# Apple Silicon only; enable when an amd64-only image actually requires Rosetta.
+export COLIMA_ROSETTA=1
+```
+
+For a 48 GiB development Mac, `6 CPU / 12 GiB RAM / 100 GiB disk` is a sensible starting point. The defaults are applied only when the `default` profile is first created. Existing profiles are preserved.
+
+Check the runtime and Docker context:
+
+```bash
+colstatus
+dctx
+docker info
+docker compose version
+docker buildx version
+```
+
+To edit an existing Colima profile:
+
+```bash
+colima stop
+colima start --edit
+```
+
+CPU and memory can be adjusted, but VM type and mount type are immutable after profile creation. To recreate the profile with new immutable settings, first back up any required volumes/data, then intentionally delete and recreate it:
+
+```bash
+colima stop
+colima delete
+colup
+```
+
+Do not use `colima delete --data` unless images, containers and volumes should be removed completely.
+
 ## Daily workflow
 
 Edit a linked config normally:
@@ -147,7 +237,7 @@ The aliases below are defined in `~/.config/zsh/aliases.zsh`. Helper functions a
 You do not need to memorize everything. The most useful daily commands are:
 
 ```text
-ll  lt  b  z  zi  cproj  gs  gd  lg  dcud  dcl  dcd  port  t  reload
+ll  lt  b  z  zi  cproj  gs  gd  lg  colup  dcud  dcl  dcd  colstop  port  t  reload
 ```
 
 ### Navigation and file listing
@@ -253,6 +343,12 @@ alias gst
 
 | Command | Expands to | Recommended use |
 |---|---|---|
+| `colup` | `colima-setup` | Start Colima; recreate an absent profile with optimized defaults |
+| `colstatus` | `colima status` | Check VM/runtime status |
+| `colstop` | `colima stop` | Stop the VM and release its reserved memory |
+| `colrestart` | `colima restart` | Restart the runtime after configuration/network issues |
+| `colssh` | `colima ssh` | Enter the Linux VM for low-level debugging |
+| `dctx` | `docker context ls` | Inspect the active Docker context |
 | `d` | `docker` | General Docker commands |
 | `dc` | `docker compose` | Compose commands without a dedicated alias |
 | `dps` | Formatted `docker ps` | Compact container status table |
@@ -264,10 +360,20 @@ alias gst
 Recommended local-development workflow:
 
 ```bash
+colup
 dcud
 dps
 dcl
 ```
+
+When development is finished:
+
+```bash
+dcd
+colstop
+```
+
+`dcd` stops the current Compose project. `colstop` stops the entire Colima VM, so use it only after other running container projects are no longer needed.
 
 Restart or inspect one service:
 
@@ -426,6 +532,7 @@ t ipacer
 
 ```bash
 gs
+colup
 dcud
 dps
 port 8080
@@ -588,6 +695,8 @@ uv run python main.py
 ./doctor.sh
 hyperfine --warmup 5 'zsh -i -c exit'
 ```
+
+`doctor.sh` verifies the Docker CLI, Compose, Buildx and credential helper. A stopped Colima VM is reported as informational rather than as an error; run `colup` when Docker daemon validation is needed.
 
 ## Remove symlinks
 
