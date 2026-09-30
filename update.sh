@@ -40,7 +40,6 @@ if [[ -d "$DOTFILES_DIR/.git" ]]; then
     "tmux/.tmux.conf"
     "git/.gitconfig"
     "git/.gitignore_global"
-    "bin/.local/bin/colima-setup"
   )
 
   for source_rel in "${required_sources[@]}"; do
@@ -62,6 +61,10 @@ fi
 
 brew bundle --file="$DOTFILES_DIR/Brewfile"
 
+# Start now and register the user service for subsequent macOS logins.
+# This is idempotent and preserves the existing default Colima profile.
+brew services start colima
+
 # Preserve machine-local config while migrating away from Stow directory
 # folding. local.zsh must remain a real local file, never part of the repo.
 LOCAL_ZSH="$HOME/.config/zsh/local.zsh"
@@ -82,13 +85,11 @@ mkdir -p "$HOME/.config" "$HOME/.local"
 unfold_managed_directory "$HOME/.config/zsh"
 unfold_managed_directory "$HOME/.config/ghostty"
 unfold_managed_directory "$HOME/.config/atuin"
-unfold_managed_directory "$HOME/.local/bin"
 
 mkdir -p \
   "$HOME/.config/zsh" \
   "$HOME/.config/ghostty" \
-  "$HOME/.config/atuin" \
-  "$HOME/.local/bin"
+  "$HOME/.config/atuin"
 
 if [[ -n "$LOCAL_ZSH_STASH" ]]; then
   cp -p "$LOCAL_ZSH_STASH" "$LOCAL_ZSH"
@@ -96,7 +97,7 @@ if [[ -n "$LOCAL_ZSH_STASH" ]]; then
 fi
 
 stow --dir="$DOTFILES_DIR" --target="$HOME" --no-folding --restow \
-  zsh ghostty starship atuin tmux git bin
+  zsh ghostty starship atuin tmux git
 
 if [[ ! -e "$LOCAL_ZSH" ]]; then
   cp "$HOME/.config/zsh/local.zsh.example" "$LOCAL_ZSH"
@@ -110,10 +111,6 @@ fi
 
 if [[ -x "$HOME/.tmux/plugins/tpm/bin/update_plugins" ]]; then
   "$HOME/.tmux/plugins/tpm/bin/update_plugins" all || true
-fi
-
-if [[ -x "$HOME/.local/bin/colima-setup" ]]; then
-  "$HOME/.local/bin/colima-setup" --plugins-only
 fi
 
 if [[ -x "$HOME/.cargo/bin/rustup" ]]; then

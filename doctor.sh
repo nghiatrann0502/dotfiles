@@ -43,14 +43,16 @@ fi
 
 if colima status >/dev/null 2>&1; then
   echo "✓ Colima running"
-  if docker info >/dev/null 2>&1; then
-    echo "✓ Docker daemon reachable"
+  if docker --context colima info >/dev/null 2>&1; then
+    echo "✓ Colima Docker daemon reachable"
   else
-    echo "✗ Docker daemon unreachable"
+    echo "✗ Colima Docker daemon unreachable"
     failed=1
   fi
 else
-  echo "○ Colima installed but stopped (run: colup)"
+  echo "✗ Colima not ready; check: brew services info colima"
+  echo "  Start with: brew services start colima (first startup may take a few minutes)"
+  failed=1
 fi
 
 if command -v cargo >/dev/null 2>&1 && cargo clippy --version >/dev/null 2>&1; then

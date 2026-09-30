@@ -3,6 +3,7 @@ brew "stow"
 
 # Terminal and shell
 cask "ghostty"
+cask "font-jetbrains-mono-nerd-font"
 brew "fzf"
 brew "tmux"
 brew "zoxide"
@@ -27,6 +28,9 @@ brew "jq"
 brew "yq"
 brew "xh"
 
+# Database clients
+cask "redis-insight"
+
 # System utilities
 brew "btop"
 brew "dust"
@@ -35,6 +39,14 @@ brew "procs"
 brew "tealdeer"
 brew "hyperfine"
 brew "just"
+
+# Vietnamese input
+cask "xkey"
+
+# Productivity
+cask "raycast"
+cask "zed"
+cask "tablepro"
 
 # Containers (Docker CLI without Docker Desktop)
 brew "colima"

@@ -51,7 +51,6 @@ restore_missing_sources() {
     "tmux/.tmux.conf|.tmux.conf"
     "git/.gitconfig|.gitconfig"
     "git/.gitignore_global|.gitignore_global"
-    "bin/.local/bin/colima-setup|.local/bin/colima-setup"
   )
 
   shopt -s nullglob
@@ -112,13 +111,11 @@ mkdir -p "$HOME/.config" "$HOME/.local"
 unfold_managed_directory "$HOME/.config/zsh"
 unfold_managed_directory "$HOME/.config/ghostty"
 unfold_managed_directory "$HOME/.config/atuin"
-unfold_managed_directory "$HOME/.local/bin"
 
 mkdir -p \
   "$HOME/.config/zsh" \
   "$HOME/.config/ghostty" \
-  "$HOME/.config/atuin" \
-  "$HOME/.local/bin"
+  "$HOME/.config/atuin"
 
 if [[ -n "$LOCAL_ZSH_STASH" ]]; then
   cp -p "$LOCAL_ZSH_STASH" "$LOCAL_ZSH"
@@ -127,7 +124,7 @@ fi
 
 log "Recreating individual file symlinks"
 stow --dir="$DOTFILES_DIR" --target="$HOME" --no-folding --restow \
-  zsh ghostty starship atuin tmux git bin
+  zsh ghostty starship atuin tmux git
 
 if [[ ! -e "$LOCAL_ZSH" ]]; then
   cp "$HOME/.config/zsh/local.zsh.example" "$LOCAL_ZSH"

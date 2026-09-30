@@ -74,7 +74,6 @@ restore_missing_managed_sources() {
     "tmux/.tmux.conf|.tmux.conf"
     "git/.gitconfig|.gitconfig"
     "git/.gitignore_global|.gitignore_global"
-    "bin/.local/bin/colima-setup|.local/bin/colima-setup"
   )
 
   shopt -s nullglob
@@ -140,6 +139,11 @@ fi
 log "Installing packages from Brewfile"
 brew bundle --file="$DOTFILES_DIR/Brewfile"
 
+log "Starting Colima and enabling automatic startup at login"
+# Use the current user's LaunchAgent; do not run this with sudo.
+# Homebrew starts Colima asynchronously using its existing default profile.
+brew services start colima
+
 log "Repairing legacy Stow layout if needed"
 restore_missing_managed_sources
 
@@ -165,7 +169,6 @@ mkdir -p "$HOME/.config" "$HOME/.local"
 unfold_managed_directory "$HOME/.config/zsh"
 unfold_managed_directory "$HOME/.config/ghostty"
 unfold_managed_directory "$HOME/.config/atuin"
-unfold_managed_directory "$HOME/.local/bin"
 
 if [[ -n "$LOCAL_ZSH_STASH" ]]; then
   mkdir -p "$HOME/.config/zsh"
@@ -189,7 +192,6 @@ managed_targets=(
   "$HOME/.tmux.conf"
   "$HOME/.gitconfig"
   "$HOME/.gitignore_global"
-  "$HOME/.local/bin/colima-setup"
 )
 
 backed_up=false
@@ -215,11 +217,10 @@ log "Creating dotfile symlinks with GNU Stow"
 mkdir -p \
   "$HOME/.config/zsh" \
   "$HOME/.config/ghostty" \
-  "$HOME/.config/atuin" \
-  "$HOME/.local/bin"
+  "$HOME/.config/atuin"
 
 stow --dir="$DOTFILES_DIR" --target="$HOME" --no-folding --restow \
-  zsh ghostty starship atuin tmux git bin
+  zsh ghostty starship atuin tmux git
 
 log "Creating machine-local Zsh config"
 LOCAL_ZSH_EXAMPLE="$HOME/.config/zsh/local.zsh.example"
@@ -260,9 +261,6 @@ if ! nvm version default >/dev/null 2>&1; then
   nvm install --lts
   nvm alias default 'lts/*'
 fi
-
-log "Setting up Colima and Docker CLI"
-"$HOME/.local/bin/colima-setup"
 
 log "Installing Rust stable through rustup"
 export PATH="$HOME/.cargo/bin:$PATH"
@@ -321,7 +319,6 @@ Setup complete.
 
 Next steps:
   1. Restart Ghostty or run: exec zsh
-  2. Use colstop when Docker is not needed; use colup to start it again.
-  3. Edit ~/.config/zsh/local.zsh for machine-specific paths or aliases.
-  4. For Ghostty Quick Terminal, allow Accessibility permission when macOS asks.
+  2. Edit ~/.config/zsh/local.zsh for machine-specific paths or aliases.
+  3. For Ghostty Quick Terminal, allow Accessibility permission when macOS asks.
 MESSAGE

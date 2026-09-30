@@ -10,6 +10,6 @@ if ! command -v stow >/dev/null 2>&1; then
 fi
 
 stow --dir="$DOTFILES_DIR" --target="$HOME" --no-folding --delete \
-  zsh ghostty starship atuin tmux git bin
+  zsh ghostty starship atuin tmux git
 
 echo "Dotfile symlinks removed. Packages, app data, and local.zsh were left untouched."
