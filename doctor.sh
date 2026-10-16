@@ -69,4 +69,23 @@ else
   failed=1
 fi
 
+# Check every plugin declared by this repository, including newly added ones.
+DOTFILES_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+while IFS= read -r plugin; do
+  plugin="${plugin%%#*}"
+  plugin_name="${plugin##*/}"
+  plugin_name="${plugin_name%.git}"
+  if [[ -d "$HOME/.tmux/plugins/$plugin_name/.git" ]]; then
+    printf '✓ tmux plugin: %s\n' "$plugin_name"
+  else
+    printf '✗ tmux plugin missing: %s\n' "$plugin_name"
+    failed=1
+  fi
+done < <(awk '/^[[:space:]]*set[[:space:]]+-g[[:space:]]+@plugin/ { gsub(/[\047\042]/, "", $4); print $4 }' "$DOTFILES_DIR/tmux/.tmux.conf")
+
+if [[ ! -x "$HOME/.tmux/plugins/tpm/bin/install_plugins" ]]; then
+  echo "✗ TPM installer missing; run: bash scripts/sync-tmux-plugins.sh install"
+  failed=1
+fi
+
 exit "$failed"

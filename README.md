@@ -14,7 +14,7 @@ A practical macOS terminal setup managed with Git + GNU Stow.
 - fzf + fzf-tab
 - Atuin
 - zoxide
-- tmux + TPM + resurrect + continuum
+- tmux + TPM + resurrect + continuum + Catppuccin + battery/CPU/RAM status
 - eza, bat, fd, ripgrep
 - delta, lazygit, GitHub CLI
 - jq, yq, xh
@@ -393,21 +393,33 @@ named tmux sessions -> long-running projects, SSH and persistent processes
 
 #### tmux keys
 
-The tmux prefix is `Ctrl-A`.
+The tmux prefix is `Ctrl-T`. Inside tmux, press `Ctrl-T` twice to send it to the shell (for example, to open fzf file search).
+
+Both `install.sh` and `update.sh` install TPM and missing plugins automatically. `update.sh` also updates installed plugins. Plugin failures stop the script with an error instead of reporting success. Existing tmux sessions are not automatically reloaded; apply the new config with `tmux source-file ~/.tmux.conf`.
+
+To retry only plugin setup:
+
+```bash
+bash scripts/sync-tmux-plugins.sh install
+```
+
+Copy mode and log search use OSC 52 to copy through the attached terminal, including over SSH. The terminal must allow clipboard writes.
 
 | Key | Action |
 |---|---|
-| `Ctrl-A c` | Create a new window in the current directory |
-| `Ctrl-A \|` | Split the current pane left/right |
-| `Ctrl-A -` | Split the current pane top/bottom |
-| `Ctrl-A h/j/k/l` | Move between panes |
-| `Ctrl-A H/J/K/L` | Resize panes by five cells |
-| `Ctrl-A d` | Detach from the current session |
-| `Ctrl-A r` | Reload `~/.tmux.conf` |
-| `Ctrl-A [` | Enter copy/scroll mode |
+| `Ctrl-T c` | Create a new window in the current directory |
+| `Ctrl-T \|` | Split the current pane left/right |
+| `Ctrl-T -` | Split the current pane top/bottom |
+| `Ctrl-T h/j/k/l` | Move between panes |
+| `Ctrl-T H/J/K/L` | Resize panes by five cells |
+| `Ctrl-T d` | Detach from the current session |
+| `Ctrl-T f` | Search all retained pane history with fzf and copy selected lines |
+| `Ctrl-T m` | Toggle pane zoom |
+| `Ctrl-T r` | Reload `~/.tmux.conf` |
+| `Ctrl-T [` | Enter copy/scroll mode |
 | `v` in copy mode | Begin selection |
 | `y` in copy mode | Copy selection to the macOS clipboard |
-| `Ctrl-A Shift-I` | Install TPM plugins manually |
+| `Ctrl-T Shift-I` | Install TPM plugins manually |
 
 ### Helper functions
 
@@ -512,7 +524,7 @@ port 8080
 go run ./cmd/api
 ```
 
-Open another tmux window with `Ctrl-A c`, then follow the stack logs:
+Open another tmux window with `Ctrl-T c`, then follow the stack logs:
 
 ```bash
 dcl

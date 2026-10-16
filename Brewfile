@@ -3,6 +3,7 @@ brew "stow"
 
 # Terminal and shell
 cask "ghostty"
+cask "ptrinh/viettelex/viettelex"
 cask "font-jetbrains-mono-nerd-font"
 brew "fzf"
 brew "tmux"

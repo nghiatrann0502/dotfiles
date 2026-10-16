@@ -106,12 +106,7 @@ fi
 [[ -d "$HOME/.oh-my-zsh/.git" ]] && git -C "$HOME/.oh-my-zsh" pull --ff-only
 [[ -d "$HOME/.oh-my-zsh/custom/plugins/fzf-tab/.git" ]] && \
   git -C "$HOME/.oh-my-zsh/custom/plugins/fzf-tab" pull --ff-only
-[[ -d "$HOME/.tmux/plugins/tpm/.git" ]] && \
-  git -C "$HOME/.tmux/plugins/tpm" pull --ff-only
-
-if [[ -x "$HOME/.tmux/plugins/tpm/bin/update_plugins" ]]; then
-  "$HOME/.tmux/plugins/tpm/bin/update_plugins" all || true
-fi
+bash "$DOTFILES_DIR/scripts/sync-tmux-plugins.sh" update
 
 if [[ -x "$HOME/.cargo/bin/rustup" ]]; then
   "$HOME/.cargo/bin/rustup" update stable

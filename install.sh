@@ -277,17 +277,10 @@ rustup component add rustfmt clippy rust-analyzer rust-src || \
   warn "Some optional Rust components could not be installed. Retry with: rustup component add rustfmt clippy rust-analyzer rust-src"
 
 log "Installing tmux plugins"
-TPM_DIR="$HOME/.tmux/plugins/tpm"
-if [[ ! -d "$TPM_DIR/.git" ]]; then
-  rm -rf "$TPM_DIR"
-  git clone --depth 1 https://github.com/tmux-plugins/tpm.git "$TPM_DIR"
-else
-  git -C "$TPM_DIR" pull --ff-only
-fi
-
-if [[ -x "$TPM_DIR/bin/install_plugins" ]]; then
-  "$TPM_DIR/bin/install_plugins" || warn "Open tmux and press Ctrl-A then Shift-I to install plugins."
-fi
+bash "$DOTFILES_DIR/scripts/sync-tmux-plugins.sh" install || {
+  warn "Tmux plugin setup failed. Retry: bash \"$DOTFILES_DIR/scripts/sync-tmux-plugins.sh\" install"
+  exit 1
+}
 
 log "Importing existing Zsh history into Atuin"
 ATUIN_IMPORT_MARKER="$HOME/.local/state/dotfiles/atuin-zsh-history-imported"
